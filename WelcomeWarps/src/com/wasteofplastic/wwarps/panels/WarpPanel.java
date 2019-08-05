@@ -65,7 +65,7 @@ public class WarpPanel implements Listener {
                 } else {
                     ItemMeta meta = playerSign.getItemMeta();
                     assert meta != null;
-                    meta.setDisplayName("§r" + playerName);
+                    meta.setDisplayName(playerName);
                     //get the sign info
                     Location signLocation = plugin.getWarpSignsListener().getWarp(playerUUID);
                     if (Tag.STANDING_SIGNS.isTagged(signLocation.getBlock().getType())){
