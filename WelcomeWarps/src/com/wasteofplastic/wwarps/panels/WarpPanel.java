@@ -1,17 +1,8 @@
 package com.wasteofplastic.wwarps.panels;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -67,15 +59,16 @@ public class WarpPanel implements Listener {
             // Make a head if the player is known
             String playerName = plugin.getServer().getOfflinePlayer(playerUUID).getName();
             if (playerName != null) {
-                ItemStack playerSign = new ItemStack(Material.SIGN);
+                ItemStack playerSign = new ItemStack(Material.OAK_SIGN); //Item that is displayed instead of the player head
                 if (signpostCache.containsKey(playerUUID)) {
                     playerSign = signpostCache.get(playerUUID);
                 } else {
                     ItemMeta meta = playerSign.getItemMeta();
-                    meta.setDisplayName(playerName);
+                    assert meta != null;
+                    meta.setDisplayName("§r" + playerName);
                     //get the sign info
                     Location signLocation = plugin.getWarpSignsListener().getWarp(playerUUID);
-                    if (signLocation.getBlock().getType().equals(Material.SIGN_POST) || signLocation.getBlock().getType().equals(Material.WALL_SIGN)) {
+                    if (Tag.STANDING_SIGNS.isTagged(signLocation.getBlock().getType())){
                         Sign sign = (Sign)signLocation.getBlock().getState();
                         List<String> lines = new ArrayList<>(Arrays.asList(sign.getLines()));
                         meta.setLore(lines);
@@ -88,8 +81,9 @@ public class WarpPanel implements Listener {
                 warpPanel.get(panelNumber).setItem(slot++, newButton.getItem());
             } else {
                 // Just make a blank space
-                ItemStack playerSign = new ItemStack(Material.SIGN);
+                ItemStack playerSign = new ItemStack(Material.OAK_SIGN);
                 ItemMeta meta = playerSign.getItemMeta();
+                assert meta != null;
                 meta.setDisplayName("#" + count);
                 playerSign.setItemMeta(meta);
                 warpPanel.get(panelNumber).setItem(slot++,playerSign);
@@ -98,16 +92,16 @@ public class WarpPanel implements Listener {
             if (slot == panelSize-2) {
                 // Add navigation buttons
                 if (panelNumber > 0) {
-                    warpPanel.get(panelNumber).setItem(slot++, new CPItem(Material.SIGN,plugin.myLocale().warpsPrevious,"warps " + (panelNumber-1),"").getItem());
+                    warpPanel.get(panelNumber).setItem(slot++, new CPItem(Material.ARROW,plugin.myLocale().warpsPrevious,"warps " + (panelNumber-1),"").getItem());
                 }
-                warpPanel.get(panelNumber).setItem(slot, new CPItem(Material.SIGN,plugin.myLocale().warpsNext,"warps " + (panelNumber+1),"").getItem());
+                warpPanel.get(panelNumber).setItem(slot, new CPItem(Material.ARROW,plugin.myLocale().warpsNext,"warps " + (panelNumber+1),"").getItem());
                 // Move onto the next panel
                 panelNumber++;
                 slot = 0;
             }
         }
-        if (remainder != 0 && panelNumber > 0) {
-            warpPanel.get(panelNumber).setItem(slot++, new CPItem(Material.SIGN,plugin.myLocale().warpsPrevious,"warps " + (panelNumber-1),"").getItem());
+        if (panelNumber > 0) {
+            warpPanel.get(panelNumber).setItem(slot++, new CPItem(Material.ARROW,plugin.myLocale().warpsPrevious,"warps " + (panelNumber-1),"").getItem());
         }
     }
 
@@ -123,8 +117,8 @@ public class WarpPanel implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled=true)
     public void onInventoryClick(InventoryClickEvent event) {
         Inventory inventory = event.getInventory(); // The inventory that was clicked in
-        String title = inventory.getTitle();
-        if (!inventory.getTitle().startsWith(plugin.myLocale().warpsTitle + " #")) {
+        String title = event.getView().getTitle();
+        if (!event.getView().getTitle().startsWith(plugin.myLocale().warpsTitle + " #")) {
             return;
         }
         // The player that clicked the item
@@ -135,28 +129,27 @@ public class WarpPanel implements Listener {
             return;
         }
         ItemStack clicked = event.getCurrentItem(); // The item that was clicked
+        assert clicked != null;
         if (event.getRawSlot() >= event.getInventory().getSize() || clicked.getType() == Material.AIR) {
             return;
         }
         int panelNumber;
         try {
-            panelNumber = Integer.valueOf(title.substring(title.indexOf('#')+ 1));
+            panelNumber = Integer.parseInt(title.substring(title.indexOf('#')+ 1));
         } catch (Exception e) {
             panelNumber = 0;
         }
-        String command = clicked.getItemMeta().getDisplayName();
-        if (command != null) {
-            if (command.equalsIgnoreCase(plugin.myLocale().warpsNext)) {
-                player.closeInventory();
-                player.performCommand("wwarps " + (panelNumber+1));
-            } else if (command.equalsIgnoreCase(plugin.myLocale().warpsPrevious)) {
-                player.closeInventory();
-                player.performCommand("wwarps " + (panelNumber-1));
-            } else {
-                player.closeInventory();
-                player.sendMessage(ChatColor.GREEN + plugin.myLocale().warpswarpToPlayersSign.replace("<player>", command));
-                player.performCommand("wwarp " + command);
-            }
+        String command = Objects.requireNonNull(clicked.getItemMeta()).getDisplayName();
+        if (command.equalsIgnoreCase(plugin.myLocale().warpsNext)) {
+            player.closeInventory();
+            player.performCommand("wwarps " + (panelNumber+1));
+        } else if (command.equalsIgnoreCase(plugin.myLocale().warpsPrevious)) {
+            player.closeInventory();
+            player.performCommand("wwarps " + (panelNumber-1));
+        } else {
+            player.closeInventory();
+            player.sendMessage(ChatColor.GREEN + plugin.myLocale().warpswarpToPlayersSign.replace("<player>", command));
+            player.performCommand("wwarp " + command);
         }
     }
 }

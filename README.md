@@ -14,3 +14,8 @@ The other lines on the sign can say anything and are ignored by the plugin.
 
 The safety of a warp is checked before a player warps and if unsafe the warp is not allowed.
 
+==================
+
+This version is made and tested on 1.14.4 with Java 11. 
+It might work with older versions of Java, but not older versions of Spigot (anything below 1.14).
+If anyone want's to make this mess of a plugin better, please do. This is just a fork I did to fix it on my server. 

@@ -3,6 +3,7 @@ main: com.wasteofplastic.wwarps.WWarps
 version: ${version}
 description: Easy to use warp signs for players
 author: tastybento
+api-version: 1.14
 commands:
     wwarp:
        description: Show Welcome Warp Signs

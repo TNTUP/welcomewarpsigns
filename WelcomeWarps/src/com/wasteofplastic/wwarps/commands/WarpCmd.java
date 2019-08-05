@@ -16,21 +16,14 @@
  *******************************************************************************/
 package com.wasteofplastic.wwarps.commands;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.UUID;
 
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.Sign;
+import org.bukkit.block.data.type.Sign;
+import org.bukkit.block.data.type.WallSign;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -102,7 +95,7 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
                         // Try the warp panel
                         int panelNum;
                         try {
-                            panelNum = Integer.valueOf(split[0]) - 1;
+                            panelNum = Integer.parseInt(split[0]) - 1;
                         } catch (Exception e) {
                             panelNum = 0;
                         }
@@ -121,11 +114,11 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
                             // Try the warp panel
                             player.openInventory(plugin.getWarpPanel().getWarpPanel(0));
                         } else {
-                            Boolean hasWarp = false;
+                            boolean hasWarp = false;
                             StringBuilder wlist = new StringBuilder();
                             for (UUID w : warpList) {
                                 if (wlist.length() == 0) {
-                                    wlist = new StringBuilder(plugin.getServer().getOfflinePlayer(w).getName());
+                                    wlist = new StringBuilder(Objects.requireNonNull(plugin.getServer().getOfflinePlayer(w).getName()));
                                 } else {
                                     wlist.append(", ").append(plugin.getServer().getOfflinePlayer(w).getName());
                                 }
@@ -147,9 +140,7 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
             }
         }
         if (label.equalsIgnoreCase("wwarp")) {
-            switch (split.length) {
-            case 1:
-                // Warp somewhere command
+            if (split.length == 1) {// Warp somewhere command
                 if (!player.hasPermission(Settings.PERMPREFIX + "use")) {
                     player.sendMessage(ChatColor.RED + plugin.myLocale().errorNoPermission);
                     return true;
@@ -167,7 +158,7 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
                     // Check if this is part of a name
                     UUID foundWarp = null;
                     for (UUID warp : warpList) {
-                        if (plugin.getServer().getOfflinePlayer(warp).getName().toLowerCase().startsWith(split[0].toLowerCase())) {
+                        if (Objects.requireNonNull(plugin.getServer().getOfflinePlayer(warp).getName()).toLowerCase().startsWith(split[0].toLowerCase())) {
                             foundWarp = warp;
                             break;
                         }
@@ -186,16 +177,19 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
                         }
                         // Find out which direction the warp is facing
                         Block b = warpSpot.getBlock();
-                        if (b.getType().equals(Material.SIGN_POST) || b.getType().equals(Material.WALL_SIGN)) {
-                            Sign sign = (Sign) b.getState();
-                            org.bukkit.material.Sign s = (org.bukkit.material.Sign) sign.getData();
-                            BlockFace directionFacing = s.getFacing();
+                        if (Tag.SIGNS.isTagged(b.getType())) {
+                            BlockFace directionFacing;
+                            if (Tag.STANDING_SIGNS.isTagged(b.getType())) {
+                                directionFacing = ((Sign) b.getBlockData()).getRotation();
+                            } else {
+                                directionFacing = ((WallSign) b.getBlockData()).getFacing();
+                            }
                             Location inFront = b.getRelative(directionFacing).getLocation();
                             Location oneDown = b.getRelative(directionFacing).getRelative(BlockFace.DOWN).getLocation();
                             if ((WWarps.isSafeLocation(inFront))) {
                                 warpPlayer(player, inFront, foundWarp, directionFacing);
                                 return true;
-                            } else if (b.getType().equals(Material.WALL_SIGN) && WWarps.isSafeLocation(oneDown)) {
+                            } else if (Tag.WALL_SIGNS.isTagged(b.getType()) && WWarps.isSafeLocation(oneDown)) {
                                 // Try one block down if this is a wall sign
                                 warpPlayer(player, oneDown, foundWarp, directionFacing);
                                 return true;
@@ -209,7 +203,7 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
                         if (!(WWarps.isSafeLocation(warpSpot))) {
                             player.sendMessage(ChatColor.RED + plugin.myLocale().warpserrorNotSafe);
                             // WALL_SIGN's will always be unsafe if the place in front is obscured.
-                            if (b.getType().equals(Material.SIGN_POST)) {
+                            if (Tag.STANDING_SIGNS.isTagged(b.getType())) {
                                 plugin.getLogger().warning(
                                         "Unsafe warp found at " + warpSpot.toString() + " owned by " + plugin.getServer().getOfflinePlayer(foundWarp).getName());
                             }
@@ -217,17 +211,16 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
                         } else {
                             final Location actualWarp = new Location(warpSpot.getWorld(), warpSpot.getBlockX() + 0.5D, warpSpot.getBlockY(),
                                     warpSpot.getBlockZ() + 0.5D);
-                            player.teleport(actualWarp);			    
+                            player.teleport(actualWarp);
                             player.getWorld().playSound(player.getLocation(), batTakeOff, 1F, 1F);
                             return true;
                         }
                     }
                 }
-            default:
-                player.performCommand("wwarps");
-                return true;
-            } 
-        } 
+            }
+            player.performCommand("wwarps");
+            return true;
+        }
         return false;
     }
 
@@ -270,17 +263,13 @@ public class WarpCmd implements CommandExecutor, TabCompleter {
         }
         String lastArg = (args.length != 0 ? args[args.length - 1] : "");
         //plugin.getLogger().info("DEBUG: args length = " + args.length);
-        switch (args.length) {
-        case 1: 
+        if (args.length == 1) {
             final Set<UUID> warpList = plugin.getWarpSignsListener().listWarps();
             //plugin.getLogger().info("DEBUG: warp list = " + warpList);
             for (UUID warp : warpList) {
                 //plugin.getLogger().info("DEBUG: adding " + plugin.getServer().getOfflinePlayer(warp).getName());
                 options.add(plugin.getServer().getOfflinePlayer(warp).getName());
             }
-            break;
-        default:
-            break;
         }
         return Util.tabLimit(options, lastArg);
     }
